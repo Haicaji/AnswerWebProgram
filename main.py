@@ -92,8 +92,11 @@ def get_next_question():
     global current_question_index
     global last_question_index
 
-    last_question_index = current_question_index
-    current_question_index = get_question()
+    if current_question_index == last_question_index:
+        current_question_index += 1
+    else:
+        last_question_index = current_question_index
+        current_question_index = get_question()
 
     questions_index = questions_dict[current_question_index][0]
     question_text, question_image = extract_base64_to_image(questions_dict[current_question_index][1])
@@ -121,7 +124,7 @@ def check_answer(options):
     if current_checked_question_index != current_question_index:
         current_checked_question_index = current_question_index
         questions_dict[current_question_index][8] += 1
-        if options == questions_dict[current_question_index + 1][2]:
+        if options == questions_dict[current_question_index][2]:
             pass
         else:
             questions_dict[current_question_index][9] += 1
@@ -137,7 +140,7 @@ def save_record():
     questions_list_s = questions_dict.values()
 
     df_s = pd.DataFrame(questions_list_s, columns=new_columns_order)
-    df_s.to_csv("questions_4/all_new.csv", index=False, encoding="utf_8")
+    df_s.to_csv(questions_csv_path, index=False, encoding="utf_8")
 
 
 def extract_base64_to_image(text):
@@ -164,6 +167,35 @@ def extract_base64_to_image(text):
     return text, images
 
 
+def modify_sava(question_textbox,
+                A_option_textbox, B_option_textbox, C_option_textbox, D_option_textbox,
+                answer_textbox, explain_textbox):
+    global current_question_index
+    global questions_dict
+
+    questions_dict[current_question_index][1] = question_textbox
+    questions_dict[current_question_index][3] = A_option_textbox
+    questions_dict[current_question_index][4] = B_option_textbox
+    questions_dict[current_question_index][5] = C_option_textbox
+    questions_dict[current_question_index][6] = D_option_textbox
+    if answer_textbox != '':
+        questions_dict[current_question_index][2] = answer_textbox
+    if explain_textbox != '':
+        questions_dict[current_question_index][7] = explain_textbox
+
+    question_text, question_image = extract_base64_to_image(questions_dict[current_question_index][1])
+    question_option_A_text, question_option_A_image = extract_base64_to_image(questions_dict[current_question_index][3])
+    question_option_B_text, question_option_B_image = extract_base64_to_image(questions_dict[current_question_index][4])
+    question_option_C_text, question_option_C_image = extract_base64_to_image(questions_dict[current_question_index][5])
+    question_option_D_text, question_option_D_image = extract_base64_to_image(questions_dict[current_question_index][6])
+
+    image = question_image + question_option_A_image + question_option_B_image + question_option_C_image + question_option_D_image
+
+    return (question_text, image,
+            question_option_A_text, question_option_B_text,
+            question_option_C_text, question_option_D_text)
+
+
 def main():
     global current_question_index
     global questions_dict
@@ -184,15 +216,15 @@ def main():
         with gr.Row():
             question_textbox = gr.Textbox(label="题目: ",
                                           value='',
-                                          interactive=False)
+                                          interactive=True)
             image = gr.Gallery(height=300)
         with gr.Row():
-            A_option_textbox = gr.Textbox(label="选项A: ", value='')
-            B_option_textbox = gr.Textbox(label="选项B: ", value='')
-            C_option_textbox = gr.Textbox(label="选项C: ", value='')
-            D_option_textbox = gr.Textbox(label="选项D: ", value='')
+            A_option_textbox = gr.Textbox(label="选项A: ", value='', interactive=True)
+            B_option_textbox = gr.Textbox(label="选项B: ", value='', interactive=True)
+            C_option_textbox = gr.Textbox(label="选项C: ", value='', interactive=True)
+            D_option_textbox = gr.Textbox(label="选项D: ", value='', interactive=True)
 
-        options_dropdown = gr.Dropdown(choices=["A", "B", "C", "D"], label="请选择: ")
+        options_dropdown = gr.Dropdown(choices=["A", "B", "C", "D", "不会"], label="请选择: ")
 
         with gr.Row():
             previous_button = gr.Button("上一题")
@@ -204,11 +236,15 @@ def main():
             next_button = gr.Button("下一题")
 
         with gr.Row():
-            answer_textbox = gr.Textbox(label="答案: ", value="", interactive=False)
-            explain_textbox = gr.Textbox(label="解析: ", value="", interactive=False)
+            answer_textbox = gr.Textbox(label="答案: ", value="", interactive=True)
+            explain_textbox = gr.Textbox(label="解析: ", value="", interactive=True)
 
         with gr.Row():
             high_worry_rate_slider = gr.Slider(0, 100, value=0, label="题目只输出错误率大于等于:")
+
+        with gr.Row():
+            # 保存修改后的题目
+            modify_sava_button = gr.Button("保存修改后的题目")
 
         previous_button.click(fn=get_previous_question,
                               outputs=[question_num_textbox,
@@ -233,8 +269,16 @@ def main():
                            outputs=[answer_textbox, explain_textbox,
                                     ans_question_time_textbox, wrong_question_time_textbox])
         high_worry_rate_slider.change(fn=change_high_worry_rate, inputs=high_worry_rate_slider, outputs=[])
+        modify_sava_button.click(fn=modify_sava,
+                                 inputs=[question_textbox,
+                                         A_option_textbox, B_option_textbox,
+                                         C_option_textbox, D_option_textbox,
+                                         answer_textbox, explain_textbox],
+                                 outputs=[question_textbox, image,
+                                          A_option_textbox, B_option_textbox,
+                                          C_option_textbox, D_option_textbox])
 
-    demo.launch()
+    demo.launch(share=True)
 
 
 if __name__ == '__main__':
